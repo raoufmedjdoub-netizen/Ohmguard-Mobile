@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Slot, Redirect, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -11,8 +11,6 @@ function AuthGuard() {
   const { isAuthenticated, isLoading, checkAuth } = useAuthStore();
   const { addNewAlert, updateAlertInList } = useAlertStore();
   const segments = useSegments();
-  const router = useRouter();
-  const navigationState = useRootNavigationState();
 
   // Check auth on mount
   useEffect(() => {
@@ -35,20 +33,7 @@ function AuthGuard() {
     };
   }, [isAuthenticated]);
 
-  // Handle navigation based on auth state - only when navigation is ready
-  useEffect(() => {
-    if (!navigationState?.key) return; // Navigation not ready
-    if (isLoading) return;
-
-    const inAuthGroup = segments[0] === 'login';
-
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace('/login');
-    } else if (isAuthenticated && inAuthGroup) {
-      router.replace('/alerts');
-    }
-  }, [isAuthenticated, isLoading, segments, navigationState?.key]);
-
+  // Show loading while checking auth
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -56,6 +41,19 @@ function AuthGuard() {
         <Text style={styles.loadingText}>Chargement...</Text>
       </View>
     );
+  }
+
+  // Check current route
+  const inAuthGroup = segments[0] === 'login';
+  const inAlertsGroup = segments[0] === 'alerts';
+
+  // Redirect based on auth state using Redirect component (not router.replace)
+  if (!isAuthenticated && !inAuthGroup) {
+    return <Redirect href="/login" />;
+  }
+
+  if (isAuthenticated && inAuthGroup) {
+    return <Redirect href="/alerts" />;
   }
 
   return <Slot />;
