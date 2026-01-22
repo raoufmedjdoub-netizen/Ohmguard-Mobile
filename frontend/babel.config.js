@@ -1,12 +1,22 @@
+const path = require('path');
+
 module.exports = function(api) {
-  api.cache.never();  // Disable Babel caching completely
+  api.cache(true);
+  
+  // Explicitly resolve the worklets plugin path
+  const workletsPlugin = require.resolve('react-native-worklets/plugin');
+  const reanimatedPlugin = require.resolve('react-native-reanimated/plugin');
+  
   return {
     presets: [
       ['babel-preset-expo', {
-        worklets: false,
-        reanimated: false,
+        worklets: false,      // Disable auto-inclusion of worklets
+        reanimated: false,    // Disable auto-inclusion of reanimated
       }],
     ],
-    plugins: ['react-native-reanimated/plugin'],
+    plugins: [
+      workletsPlugin,
+      reanimatedPlugin,
+    ],
   };
 };
