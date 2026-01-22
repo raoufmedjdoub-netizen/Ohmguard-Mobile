@@ -7,7 +7,6 @@ import { useAuthStore } from '../src/store/authStore';
 import { useAlertStore } from '../src/store/alertStore';
 import socketService from '../src/services/socket';
 
-// Auth guard component
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, checkAuth } = useAuthStore();
   const { addNewAlert, updateAlertInList } = useAlertStore();
@@ -15,7 +14,6 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
-  // Check auth on mount
   useEffect(() => {
     checkAuth().catch((e) => {
       console.error('Auth check error:', e);
@@ -23,30 +21,24 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Setup socket listeners
   useEffect(() => {
     if (isAuthenticated) {
       socketService.setOnNewAlert((alert) => {
         addNewAlert(alert);
       });
-
       socketService.setOnEventUpdated((data) => {
         updateAlertInList(data.event_id, data.update);
       });
     }
-
     return () => {
       socketService.setOnNewAlert(null);
       socketService.setOnEventUpdated(null);
     };
   }, [isAuthenticated]);
 
-  // Handle navigation based on auth state
   useEffect(() => {
     if (isLoading) return;
-
     const inAuthGroup = segments[0] === 'login';
-
     if (!isAuthenticated && !inAuthGroup) {
       router.replace('/login');
     } else if (isAuthenticated && inAuthGroup) {
@@ -57,7 +49,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   if (error) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={{ color: 'red', padding: 20 }}>Error: {error}</Text>
+        <Text style={styles.errorText}>Error: {error}</Text>
       </View>
     );
   }
@@ -80,43 +72,16 @@ export default function RootLayout() {
       <AuthGuard>
         <Stack
           screenOptions={{
-            headerStyle: {
-              backgroundColor: '#1F2937',
-            },
+            headerStyle: { backgroundColor: '#1F2937' },
             headerTintColor: '#FFFFFF',
-            headerTitleStyle: {
-              fontWeight: '700',
-            },
-            contentStyle: {
-              backgroundColor: '#F3F4F6',
-            },
+            headerTitleStyle: { fontWeight: '700' },
+            contentStyle: { backgroundColor: '#F3F4F6' },
           }}
         >
-          <Stack.Screen
-            name="index"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="login"
-            options={{
-              title: 'Connexion',
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="alerts/index"
-            options={{
-              title: 'Alertes',
-              headerBackVisible: false,
-            }}
-          />
-          <Stack.Screen
-            name="alerts/[id]"
-            options={{
-              title: 'Détail Alerte',
-              presentation: 'card',
-            }}
-          />
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ title: 'Connexion', headerShown: false }} />
+          <Stack.Screen name="alerts/index" options={{ title: 'Alertes', headerBackVisible: false }} />
+          <Stack.Screen name="alerts/[id]" options={{ title: 'Détail Alerte', presentation: 'card' }} />
         </Stack>
       </AuthGuard>
     </SafeAreaProvider>
@@ -129,5 +94,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#1F2937',
+  },
+  errorText: {
+    color: 'red',
+    padding: 20,
+    fontSize: 16,
   },
 });
