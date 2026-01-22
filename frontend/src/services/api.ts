@@ -1,5 +1,7 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { AuthTokens, User, Alert, AlertUpdate, LoginRequest } from '../types';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -17,11 +19,18 @@ const api: AxiosInstance = axios.create({
 const ACCESS_TOKEN_KEY = 'ohmguard_access_token';
 const REFRESH_TOKEN_KEY = 'ohmguard_refresh_token';
 
-// Token management
+// Check if SecureStore is available (not available on web)
+const isSecureStoreAvailable = Platform.OS !== 'web';
+
+// Token management with fallback for web
 export const tokenManager = {
   async getAccessToken(): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+      if (isSecureStoreAvailable) {
+        return await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+      } else {
+        return await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+      }
     } catch {
       return null;
     }
@@ -29,7 +38,11 @@ export const tokenManager = {
 
   async getRefreshToken(): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+      if (isSecureStoreAvailable) {
+        return await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+      } else {
+        return await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+      }
     } catch {
       return null;
     }
@@ -37,8 +50,13 @@ export const tokenManager = {
 
   async setTokens(tokens: AuthTokens): Promise<void> {
     try {
-      await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, tokens.access_token);
-      await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refresh_token);
+      if (isSecureStoreAvailable) {
+        await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, tokens.access_token);
+        await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refresh_token);
+      } else {
+        await AsyncStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token);
+        await AsyncStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
+      }
     } catch (error) {
       console.error('Error saving tokens:', error);
     }
@@ -46,8 +64,13 @@ export const tokenManager = {
 
   async clearTokens(): Promise<void> {
     try {
-      await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-      await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+      if (isSecureStoreAvailable) {
+        await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+        await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+      } else {
+        await AsyncStorage.removeItem(ACCESS_TOKEN_KEY);
+        await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
+      }
     } catch (error) {
       console.error('Error clearing tokens:', error);
     }
