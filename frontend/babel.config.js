@@ -1,7 +1,12 @@
 module.exports = function(api) {
-  api.cache(true);
+  api.cache.never();  // Disable Babel caching completely
   return {
-    presets: ['babel-preset-expo'],
+    presets: [
+      ['babel-preset-expo', {
+        worklets: false,
+        reanimated: false,
+      }],
+    ],
     plugins: ['react-native-reanimated/plugin'],
   };
 };
