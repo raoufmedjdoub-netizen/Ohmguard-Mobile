@@ -232,6 +232,122 @@ async def refresh_token(refresh_token: str = Query(...)):
 async def get_me(current_user: UserInDB = Depends(get_current_user)):
     return User(**current_user.model_dump())
 
+# ==================== PUSH NOTIFICATION ENDPOINTS ====================
+
+EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
+
+async def send_expo_push_notification(tokens: List[str], title: str, body: str, data: dict = None):
+    """Send push notification via Expo Push API"""
+    if not tokens:
+        logger.info("[Push] No tokens to send notification to")
+        return
+    
+    messages = []
+    for token in tokens:
+        if not token.startswith('ExponentPushToken'):
+            continue
+        message = {
+            "to": token,
+            "sound": "default",
+            "title": title,
+            "body": body,
+            "priority": "high",
+            "channelId": "alerts",
+        }
+        if data:
+            message["data"] = data
+        messages.append(message)
+    
+    if not messages:
+        logger.info("[Push] No valid Expo tokens found")
+        return
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                EXPO_PUSH_URL,
+                json=messages,
+                headers={
+                    "Accept": "application/json",
+                    "Accept-Encoding": "gzip, deflate",
+                    "Content-Type": "application/json",
+                }
+            )
+            result = response.json()
+            logger.info(f"[Push] Notification sent: {result}")
+            return result
+    except Exception as e:
+        logger.error(f"[Push] Error sending notification: {e}")
+        return None
+
+@api_router.post("/push-tokens", status_code=status.HTTP_201_CREATED)
+async def register_push_token(
+    token_data: PushTokenRequest,
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Register or update a push notification token for the current user"""
+    
+    # Check if token already exists for this user
+    existing = await db.push_tokens.find_one({
+        "user_id": current_user.id,
+        "token": token_data.token
+    })
+    
+    if existing:
+        # Update existing token
+        await db.push_tokens.update_one(
+            {"_id": existing["_id"]},
+            {"$set": {"updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        logger.info(f"[Push] Token updated for user {current_user.id}")
+        return {"message": "Token updated", "token_id": existing.get("id")}
+    
+    # Create new token entry
+    push_token = {
+        "id": str(uuid.uuid4()),
+        "user_id": current_user.id,
+        "tenant_id": current_user.tenant_id,
+        "token": token_data.token,
+        "device_type": token_data.device_type,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.push_tokens.insert_one(push_token)
+    logger.info(f"[Push] New token registered for user {current_user.id}: {token_data.token[:20]}...")
+    
+    return {"message": "Token registered", "token_id": push_token["id"]}
+
+@api_router.delete("/push-tokens")
+async def delete_push_token(
+    token: str = Query(...),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Delete a push notification token"""
+    result = await db.push_tokens.delete_one({
+        "user_id": current_user.id,
+        "token": token
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Token not found")
+    
+    logger.info(f"[Push] Token deleted for user {current_user.id}")
+    return {"message": "Token deleted"}
+
+async def send_notification_to_tenant(tenant_id: str, title: str, body: str, data: dict = None):
+    """Send notification to all users of a tenant"""
+    # Get all push tokens for this tenant
+    tokens_cursor = db.push_tokens.find({"tenant_id": tenant_id}, {"token": 1, "_id": 0})
+    tokens = await tokens_cursor.to_list(length=100)
+    token_list = [t["token"] for t in tokens if t.get("token")]
+    
+    if token_list:
+        await send_expo_push_notification(token_list, title, body, data)
+        logger.info(f"[Push] Sent notification to {len(token_list)} devices for tenant {tenant_id}")
+    else:
+        logger.info(f"[Push] No registered devices for tenant {tenant_id}")
+
 # ==================== EVENT ENDPOINTS ====================
 
 @api_router.get("/events", response_model=List[Event])
