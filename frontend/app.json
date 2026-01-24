@@ -9,21 +9,14 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ohmguard.mobile",
-      "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
-      }
+      "bundleIdentifier": "com.ohmguard.mobile"
     },
     "android": {
       "package": "com.ohmguard.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#1F2937"
-      },
-      "permissions": [
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE"
-      ]
+      }
     },
     "web": {
       "bundler": "metro",
@@ -32,23 +25,10 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/notification-icon.png",
-          "color": "#00BCD4"
-        }
-      ]
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "notification": {
-      "icon": "./assets/images/notification-icon.png",
-      "color": "#00BCD4",
-      "androidMode": "default",
-      "androidCollapsedTitle": "OhmGuard Alertes"
     }
   }
 }
