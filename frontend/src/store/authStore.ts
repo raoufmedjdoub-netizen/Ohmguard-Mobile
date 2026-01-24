@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { User } from '../types';
 import { authApi, tokenManager, pushApi } from '../services/api';
 import socketService from '../services/socket';
-import pushNotificationService from '../services/pushNotifications';
 import { Platform } from 'react-native';
 
 interface AuthState {
@@ -31,6 +30,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initializePushNotifications: async () => {
     try {
+      // Dynamically import push notification service to avoid module loading issues
+      const { pushNotificationService } = await import('../services/pushNotifications');
       const token = await pushNotificationService.initialize();
       if (token) {
         set({ pushToken: token });
@@ -43,7 +44,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
     } catch (error) {
-      console.error('[Auth] Failed to initialize push notifications:', error);
+      console.log('[Auth] Push notifications not available:', error);
     }
   },
 
@@ -61,8 +62,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       set({ user, isAuthenticated: true, isSubmitting: false });
       
-      // Initialize push notifications after successful login
-      get().initializePushNotifications();
+      // Initialize push notifications after successful login (delayed)
+      setTimeout(() => {
+        get().initializePushNotifications();
+      }, 1000);
       
       return true;
     } catch (error: any) {
@@ -83,8 +86,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     }
     
+    // Clean up push notification service
+    try {
+      const { pushNotificationService } = await import('../services/pushNotifications');
+      pushNotificationService.cleanup();
+    } catch (error) {
+      // Ignore if not available
+    }
+    
     socketService.disconnect();
-    pushNotificationService.cleanup();
     await authApi.logout();
     set({ user: null, isAuthenticated: false, error: null, pushToken: null });
   },
@@ -107,8 +117,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       set({ user, isAuthenticated: true, isInitializing: false });
       
-      // Initialize push notifications
-      get().initializePushNotifications();
+      // Initialize push notifications (delayed)
+      setTimeout(() => {
+        get().initializePushNotifications();
+      }, 1000);
       
       return true;
     } catch (error) {
