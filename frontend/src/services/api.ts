@@ -202,4 +202,29 @@ export const alertsApi = {
   },
 };
 
+// Push Notifications API
+export const pushApi = {
+  async registerToken(token: string, deviceType?: string): Promise<{ message: string; token_id: string }> {
+    const response = await api.post<{ message: string; token_id: string }>('/push-tokens', {
+      token,
+      device_type: deviceType,
+    });
+    return response.data;
+  },
+
+  async deleteToken(token: string): Promise<void> {
+    await api.delete('/push-tokens', { params: { token } });
+  },
+
+  async createFallEvent(): Promise<{ message: string; event_id: string }> {
+    const response = await api.post<{ message: string; event_id: string }>('/create-fall-event');
+    return response.data;
+  },
+
+  async sendTestNotification(): Promise<{ message: string; tokens_count: number }> {
+    const response = await api.post<{ message: string; tokens_count: number }>('/test-notification');
+    return response.data;
+  },
+};
+
 export default api;
