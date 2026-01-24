@@ -1,47 +1,51 @@
 import React, { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useAuthStore } from '../src/store/authStore';
-import { useAlertStore } from '../src/store/alertStore';
-import socketService from '../src/services/socket';
 import { tokenManager } from '../src/services/api';
 import Colors from '../src/constants/colors';
 
 export default function RootLayout() {
-  const [initialRoute, setInitialRoute] = useState<string | null>(null);
-  const { addNewAlert, updateAlertInList } = useAlertStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const router = useRouter();
+  const segments = useSegments();
 
   useEffect(() => {
-    const checkInitialAuth = async () => {
+    const checkAuth = async () => {
       try {
         const token = await tokenManager.getAccessToken();
-        if (token) {
-          setInitialRoute('alerts/index');
-        } else {
-          setInitialRoute('login');
-        }
+        setIsAuthenticated(!!token);
       } catch (error) {
-        setInitialRoute('login');
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
       }
     };
-    checkInitialAuth();
+    checkAuth();
   }, []);
 
+  // Handle navigation after loading
   useEffect(() => {
-    if (initialRoute === 'alerts/index') {
-      const setupSocket = async () => {
-        const token = await tokenManager.getAccessToken();
-        if (token) {
-          // Socket will connect when alerts screen loads
-        }
-      };
-      setupSocket();
-    }
-  }, [initialRoute]);
+    if (isLoading) return;
 
-  if (initialRoute === null) {
+    const inAuthGroup = segments[0] === 'login';
+    const inAlertsGroup = segments[0] === 'alerts';
+
+    if (!isAuthenticated && !inAuthGroup) {
+      // Redirect to login if not authenticated
+      router.replace('/login');
+    } else if (isAuthenticated && inAuthGroup) {
+      // Redirect to alerts if authenticated and on login
+      router.replace('/alerts');
+    } else if (isAuthenticated && segments.length === 0) {
+      // If at root and authenticated, go to alerts
+      router.replace('/alerts');
+    }
+  }, [isLoading, isAuthenticated, segments]);
+
+  if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.turquoise} />
@@ -54,7 +58,6 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <Stack
-        initialRouteName={initialRoute}
         screenOptions={{
           headerStyle: { backgroundColor: Colors.headerBg },
           headerTintColor: Colors.textLight,
