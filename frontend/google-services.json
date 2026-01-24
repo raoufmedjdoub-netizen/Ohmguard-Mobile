@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "883495845862",
+    "project_id": "ohmguard-c267e",
+    "storage_bucket": "ohmguard-c267e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:883495845862:android:f3a832157cccaa1ccaa027",
+        "android_client_info": {
+          "package_name": "com.ohmguard.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYaEvIjInrK3QhC4XP41mFPPdQxARAPmo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
