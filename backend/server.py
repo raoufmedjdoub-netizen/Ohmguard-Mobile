@@ -566,6 +566,99 @@ async def websocket_endpoint(websocket: WebSocket, tenant_id: str, token: Option
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
+# ==================== CREATE FALL EVENT WITH NOTIFICATION ====================
+
+@api_router.post("/create-fall-event")
+async def create_fall_event(current_user: UserInDB = Depends(get_current_user)):
+    """Create a new fall event and send push notification"""
+    
+    # Get tenant's sensor
+    sensor = await db.sensors.find_one({"tenant_id": current_user.tenant_id}, {"_id": 0})
+    if not sensor:
+        raise HTTPException(status_code=404, detail="No sensor found for tenant")
+    
+    # Create the event
+    event_id = str(uuid.uuid4())
+    event = {
+        "id": event_id,
+        "sensor_id": sensor["id"],
+        "type": "FALL",
+        "severity": "HIGH",
+        "status": "NEW",
+        "tenant_id": current_user.tenant_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "occurred_at": datetime.now(timezone.utc).isoformat(),
+        "confidence": 0.95
+    }
+    
+    await db.events.insert_one(event)
+    
+    # Get location info for notification
+    location_parts = []
+    if sensor.get("client_id"):
+        client_doc = await db.clients.find_one({"id": sensor["client_id"]}, {"_id": 0})
+        if client_doc:
+            location_parts.append(client_doc.get("name", ""))
+    if sensor.get("room_id"):
+        room = await db.rooms.find_one({"id": sensor["room_id"]}, {"_id": 0})
+        if room:
+            location_parts.append(f"Ch. {room.get('room_number', room.get('name', ''))}")
+    
+    location_str = " > ".join(location_parts) if location_parts else "Localisation inconnue"
+    
+    # Broadcast via Socket.IO
+    await broadcast_new_event(current_user.tenant_id, event)
+    
+    # Send push notification
+    await send_notification_to_tenant(
+        current_user.tenant_id,
+        "🚨 ALERTE CHUTE DÉTECTÉE",
+        f"Chute détectée - {location_str}",
+        {
+            "type": "new_event",
+            "eventId": event_id,
+            "eventType": "FALL",
+            "location": location_str,
+            "severity": "HIGH"
+        }
+    )
+    
+    logger.info(f"[Event] Fall event created: {event_id}")
+    
+    return {
+        "message": "Fall event created and notification sent",
+        "event_id": event_id
+    }
+
+@api_router.post("/test-notification")
+async def test_notification(current_user: UserInDB = Depends(get_current_user)):
+    """Send a test notification to the current user's devices"""
+    
+    # Get user's push tokens
+    tokens_cursor = db.push_tokens.find({"user_id": current_user.id}, {"token": 1, "_id": 0})
+    tokens = await tokens_cursor.to_list(length=10)
+    token_list = [t["token"] for t in tokens if t.get("token")]
+    
+    if not token_list:
+        raise HTTPException(status_code=404, detail="No push tokens registered for this user")
+    
+    # Send test notification
+    result = await send_expo_push_notification(
+        token_list,
+        "🔔 Test de Notification",
+        "Les notifications push fonctionnent correctement !",
+        {
+            "type": "test",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    )
+    
+    return {
+        "message": "Test notification sent",
+        "tokens_count": len(token_list),
+        "result": result
+    }
+
 # ==================== SEED DATA ====================
 
 @api_router.post("/seed")
