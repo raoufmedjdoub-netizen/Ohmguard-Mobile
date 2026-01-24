@@ -300,13 +300,13 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "1.0"
-  test_sequence: 1
+  version: "1.1"
+  test_sequence: 2
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Complete flow test: Login -> View alerts -> View detail -> Acknowledge"
+    - "Push Notifications: Test avec Development Build"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -314,3 +314,5 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: "MVP OhmGuard Mobile App complet. Backend et frontend fonctionnels. Testé manuellement avec screenshots."
+  - agent: "main"
+    message: "Push Notifications implémentées. Backend: endpoints pour tokens et envoi de notifications. Frontend: service pushNotifications.ts intégré au store d'auth. Nécessite Development Build pour tester (SDK 53+ ne supporte plus les notifs dans Expo Go)."
