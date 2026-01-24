@@ -18,6 +18,7 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 import asyncio
 import socketio
+import httpx
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
