@@ -16,6 +16,7 @@
     },
     "android": {
       "package": "com.ohmguard.mobile",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#1F2937"
