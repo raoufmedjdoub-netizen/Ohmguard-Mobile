@@ -1,22 +1,9 @@
 /**
  * Push Notifications Service
  * Handles Expo Push Notifications registration and handling
+ * Safe loading - handles cases where native modules are not available
  */
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
-import { router } from 'expo-router';
-
-// Configure how notifications should be displayed when app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    priority: Notifications.AndroidNotificationPriority.MAX,
-  }),
-});
 
 export interface PushNotificationData {
   type: 'new_event' | 'event_updated';
@@ -26,17 +13,65 @@ export interface PushNotificationData {
   severity?: string;
 }
 
+// Check if notifications module is available
+let Notifications: typeof import('expo-notifications') | null = null;
+let Device: typeof import('expo-device') | null = null;
+let Constants: typeof import('expo-constants').default | null = null;
+let isNotificationsAvailable = false;
+
+// Try to load notifications modules dynamically
+const loadNotificationsModule = async () => {
+  try {
+    Notifications = await import('expo-notifications');
+    Device = await import('expo-device');
+    const ConstantsModule = await import('expo-constants');
+    Constants = ConstantsModule.default;
+    
+    // Configure notification handler
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        priority: Notifications!.AndroidNotificationPriority.MAX,
+      }),
+    });
+    
+    isNotificationsAvailable = true;
+    console.log('[Push] Notifications module loaded successfully');
+  } catch (error) {
+    console.log('[Push] Notifications module not available:', error);
+    isNotificationsAvailable = false;
+  }
+};
+
 class PushNotificationService {
   private expoPushToken: string | null = null;
-  private notificationListener: Notifications.EventSubscription | null = null;
-  private responseListener: Notifications.EventSubscription | null = null;
+  private notificationListener: any = null;
+  private responseListener: any = null;
+  private isInitialized = false;
 
   /**
    * Initialize push notifications
    * Returns the Expo Push Token if successful
    */
   async initialize(): Promise<string | null> {
+    // Don't initialize twice
+    if (this.isInitialized) {
+      return this.expoPushToken;
+    }
+
     try {
+      // First, try to load the module
+      if (!isNotificationsAvailable) {
+        await loadNotificationsModule();
+      }
+
+      if (!isNotificationsAvailable || !Notifications || !Device) {
+        console.log('[Push] Push notifications not available on this platform');
+        return null;
+      }
+
       // Check if we're on a physical device
       if (!Device.isDevice) {
         console.log('[Push] Must use physical device for Push Notifications');
@@ -59,24 +94,23 @@ class PushNotificationService {
       }
 
       // Get the Expo Push Token
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+      const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? 
+                        (Constants as any)?.easConfig?.projectId;
       
-      if (!projectId) {
-        console.log('[Push] Project ID not found. Make sure you have configured EAS.');
-        // For development, try without project ID
-        try {
-          const tokenData = await Notifications.getExpoPushTokenAsync();
-          this.expoPushToken = tokenData.data;
-        } catch (e) {
-          console.log('[Push] Could not get token without projectId:', e);
-          return null;
+      try {
+        let tokenData;
+        if (projectId) {
+          tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+        } else {
+          console.log('[Push] No projectId found, trying without it...');
+          tokenData = await Notifications.getExpoPushTokenAsync();
         }
-      } else {
-        const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
         this.expoPushToken = tokenData.data;
+        console.log('[Push] Expo Push Token:', this.expoPushToken);
+      } catch (e: any) {
+        console.log('[Push] Could not get token:', e.message);
+        return null;
       }
-
-      console.log('[Push] Expo Push Token:', this.expoPushToken);
 
       // Configure Android channel
       if (Platform.OS === 'android') {
@@ -95,10 +129,11 @@ class PushNotificationService {
 
       // Set up notification listeners
       this.setupListeners();
+      this.isInitialized = true;
 
       return this.expoPushToken;
-    } catch (error) {
-      console.error('[Push] Error initializing push notifications:', error);
+    } catch (error: any) {
+      console.log('[Push] Error initializing push notifications:', error.message);
       return null;
     }
   }
@@ -107,24 +142,31 @@ class PushNotificationService {
    * Set up notification event listeners
    */
   private setupListeners(): void {
+    if (!Notifications) return;
+
     // Listener for notifications received while app is foregrounded
     this.notificationListener = Notifications.addNotificationReceivedListener((notification) => {
       console.log('[Push] Notification received in foreground:', notification);
-      // The notification will be shown automatically due to setNotificationHandler
     });
 
     // Listener for when user taps on notification
-    this.responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
+    this.responseListener = Notifications.addNotificationResponseReceivedListener(async (response) => {
       console.log('[Push] Notification tapped:', response);
       const data = response.notification.request.content.data as PushNotificationData;
       
-      // Navigate to the alert detail if we have an eventId
-      if (data?.eventId) {
-        router.push(`/alerts/${data.eventId}`);
-      } else {
-        // Navigate to alerts list
-        router.push('/alerts');
-      }
+      // Navigate after a short delay to ensure navigation is ready
+      setTimeout(async () => {
+        try {
+          const { router } = await import('expo-router');
+          if (data?.eventId) {
+            router.push(`/alerts/${data.eventId}`);
+          } else {
+            router.push('/alerts');
+          }
+        } catch (e) {
+          console.log('[Push] Navigation error:', e);
+        }
+      }, 500);
     });
   }
 
@@ -139,56 +181,24 @@ class PushNotificationService {
    * Clean up listeners
    */
   cleanup(): void {
-    if (this.notificationListener) {
-      Notifications.removeNotificationSubscription(this.notificationListener);
-      this.notificationListener = null;
+    if (Notifications) {
+      if (this.notificationListener) {
+        Notifications.removeNotificationSubscription(this.notificationListener);
+        this.notificationListener = null;
+      }
+      if (this.responseListener) {
+        Notifications.removeNotificationSubscription(this.responseListener);
+        this.responseListener = null;
+      }
     }
-    if (this.responseListener) {
-      Notifications.removeNotificationSubscription(this.responseListener);
-      this.responseListener = null;
-    }
+    this.isInitialized = false;
   }
 
   /**
-   * Schedule a local notification (for testing)
+   * Check if notifications are available
    */
-  async scheduleLocalNotification(
-    title: string,
-    body: string,
-    data?: PushNotificationData
-  ): Promise<string> {
-    return await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        data: data || {},
-        sound: 'default',
-        priority: Notifications.AndroidNotificationPriority.MAX,
-      },
-      trigger: null, // Show immediately
-    });
-  }
-
-  /**
-   * Get badge count
-   */
-  async getBadgeCount(): Promise<number> {
-    return await Notifications.getBadgeCountAsync();
-  }
-
-  /**
-   * Set badge count
-   */
-  async setBadgeCount(count: number): Promise<void> {
-    await Notifications.setBadgeCountAsync(count);
-  }
-
-  /**
-   * Clear all notifications
-   */
-  async clearAllNotifications(): Promise<void> {
-    await Notifications.dismissAllNotificationsAsync();
-    await this.setBadgeCount(0);
+  isAvailable(): boolean {
+    return isNotificationsAvailable;
   }
 }
 
