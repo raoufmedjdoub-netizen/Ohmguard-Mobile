@@ -74,7 +74,7 @@ export default function LoginScreen() {
               <Ionicons name="shield-checkmark" size={64} color={Colors.primary} />
             </View>
             <Text style={styles.title}>OhmGuard</Text>
-            <Text style={styles.subtitle}>Alerte Chute Mobile</Text>
+            <Text style={styles.subtitle}>Client Mobile</Text>
           </View>
 
           {/* Form */}
