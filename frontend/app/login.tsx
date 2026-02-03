@@ -14,10 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../src/store/authStore';
 import Colors from '../src/constants/colors';
 
-const LAST_EMAIL_KEY = 'ohmguard_last_email';
+const REMEMBER_ME_KEY = 'ohmguard_remember_me';
+const SAVED_EMAIL_KEY = 'ohmguard_saved_email';
+const SAVED_PASSWORD_KEY = 'ohmguard_saved_password';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
