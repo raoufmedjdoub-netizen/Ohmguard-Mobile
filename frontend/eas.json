@@ -26,8 +26,9 @@
       }
     },
     "production": {
+      "distribution": "internal",
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "apk"
       },
       "env": {
         "EXPO_PUBLIC_BACKEND_URL": "https://app.ohmguard.fr"
