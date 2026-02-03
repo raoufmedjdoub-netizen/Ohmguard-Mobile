@@ -13,7 +13,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://alert-notify.preview.emergentagent.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://app.ohmguard.fr"
       }
     },
     "preview": {
@@ -22,15 +22,16 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://alert-notify.preview.emergentagent.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://app.ohmguard.fr"
       }
     },
     "production": {
+      "distribution": "internal",
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://alert-notify.preview.emergentagent.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://app.ohmguard.fr"
       }
     }
   },

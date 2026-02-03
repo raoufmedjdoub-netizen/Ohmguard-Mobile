@@ -81,16 +81,26 @@ class PushNotificationService {
       this.expoPushToken = tokenData.data;
       console.log('[Push] Token:', this.expoPushToken);
 
-      // Setup Android notification channel
+      // Setup Android notification channel with custom sound
       if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('alerts', {
+        // Channel pour les alertes de chute avec son personnalisé
+        await Notifications.setNotificationChannelAsync('fall-alerts', {
           name: 'Alertes de Chute',
+          description: 'Notifications pour les alertes de chute détectées',
           importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
+          vibrationPattern: [0, 500, 200, 500, 200, 500],
           lightColor: '#FF0000',
-          sound: 'default',
+          sound: 'notification_alert.wav',
           enableLights: true,
           enableVibrate: true,
+          bypassDnd: true, // Bypass Do Not Disturb mode
+        });
+        
+        // Canal par défaut
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Notifications',
+          importance: Notifications.AndroidImportance.HIGH,
+          sound: 'default',
         });
       }
 

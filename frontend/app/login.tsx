@@ -14,32 +14,40 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../src/store/authStore';
 import Colors from '../src/constants/colors';
 
-const LAST_EMAIL_KEY = 'ohmguard_last_email';
+const REMEMBER_ME_KEY = 'ohmguard_remember_me';
+const SAVED_EMAIL_KEY = 'ohmguard_saved_email';
+const SAVED_PASSWORD_KEY = 'ohmguard_saved_password';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   
   const { login, isSubmitting, error, clearError } = useAuthStore();
   const router = useRouter();
 
-  // Load last email on mount
+  // Load saved credentials on mount
   useEffect(() => {
-    const loadLastEmail = async () => {
+    const loadSavedCredentials = async () => {
       try {
-        const lastEmail = await AsyncStorage.getItem(LAST_EMAIL_KEY);
-        if (lastEmail) {
-          setEmail(lastEmail);
+        const remembered = await AsyncStorage.getItem(REMEMBER_ME_KEY);
+        if (remembered === 'true') {
+          setRememberMe(true);
+          const savedEmail = await AsyncStorage.getItem(SAVED_EMAIL_KEY);
+          const savedPassword = await SecureStore.getItemAsync(SAVED_PASSWORD_KEY);
+          if (savedEmail) setEmail(savedEmail);
+          if (savedPassword) setPassword(savedPassword);
         }
       } catch (e) {
-        console.log('Could not load last email');
+        console.log('Could not load saved credentials');
       }
     };
-    loadLastEmail();
+    loadSavedCredentials();
   }, []);
 
   const handleLogin = async () => {
@@ -48,11 +56,19 @@ export default function LoginScreen() {
       return;
     }
 
-    // Save email for next time
+    // Save or clear credentials based on rememberMe
     try {
-      await AsyncStorage.setItem(LAST_EMAIL_KEY, email.trim());
+      if (rememberMe) {
+        await AsyncStorage.setItem(REMEMBER_ME_KEY, 'true');
+        await AsyncStorage.setItem(SAVED_EMAIL_KEY, email.trim());
+        await SecureStore.setItemAsync(SAVED_PASSWORD_KEY, password);
+      } else {
+        await AsyncStorage.removeItem(REMEMBER_ME_KEY);
+        await AsyncStorage.removeItem(SAVED_EMAIL_KEY);
+        await SecureStore.deleteItemAsync(SAVED_PASSWORD_KEY);
+      }
     } catch (e) {
-      console.log('Could not save email');
+      console.log('Could not save credentials');
     }
 
     const success = await login(email.trim(), password);
@@ -74,7 +90,7 @@ export default function LoginScreen() {
               <Ionicons name="shield-checkmark" size={64} color={Colors.primary} />
             </View>
             <Text style={styles.title}>OhmGuard</Text>
-            <Text style={styles.subtitle}>Alerte Chute Mobile</Text>
+            <Text style={styles.subtitle}>Client Mobile</Text>
           </View>
 
           {/* Form */}
@@ -125,6 +141,20 @@ export default function LoginScreen() {
                 />
               </TouchableOpacity>
             </View>
+
+            {/* Remember Me Checkbox */}
+            <TouchableOpacity
+              style={styles.rememberMeContainer}
+              onPress={() => setRememberMe(!rememberMe)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                {rememberMe && (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                )}
+              </View>
+              <Text style={styles.rememberMeText}>Se souvenir de moi</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.loginButton, isSubmitting && styles.loginButtonDisabled]}
@@ -227,6 +257,31 @@ const styles = StyleSheet.create({
   },
   eyeButton: {
     padding: 8,
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingVertical: 8,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: Colors.textSecondary,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.turquoise,
+    borderColor: Colors.turquoise,
+  },
+  rememberMeText: {
+    color: Colors.textSecondary,
+    fontSize: 15,
   },
   loginButton: {
     flexDirection: 'row',
